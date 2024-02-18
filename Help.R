@@ -49,3 +49,24 @@ LEFT JOIN (
         person_person
 ) AS person_person ON sales_customer.PersonID = person_person.BusinessEntityID;
 "
+
+
+
+query_sales_trends_tab2 <- "SELECT
+    sales_salesorderdetail.OrderQty, sales_salesorderdetail.LineTotal,
+    production_product.Name AS ProductName, production_product.ProductLine,  production_product.Class, production_product.Style,  
+    sales_salesorderheader.OrderDate, sales_salesorderheader.Status, 
+    sales_salesterritory.Name AS NameTerritory, sales_salesterritory.CountryRegionCode, sales_salesterritory.Group,
+    production_productcategory.Name As CategoryName
+FROM
+    (sales_salesorderdetail
+    LEFT JOIN (production_product 
+LEFT JOIN
+    (production_productsubcategory 
+	 LEFT JOIN production_productcategory ON production_productsubcategory.ProductCategoryID = production_productcategory.ProductCategoryID)
+     ON production_product.ProductSubcategoryID = production_productsubcategory.ProductSubcategoryID) ON sales_salesorderdetail.ProductID = production_product.ProductID)
+LEFT JOIN
+    (sales_salesorderheader
+    LEFT JOIN sales_salesterritory ON sales_salesorderheader.TerritoryID = sales_salesterritory.TerritoryID)
+ON
+    sales_salesorderdetail.SalesOrderID = sales_salesorderheader.SalesOrderID"

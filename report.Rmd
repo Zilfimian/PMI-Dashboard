@@ -1,0 +1,38 @@
+---
+title: " "
+output: 
+  pdf_document:
+    dev: 'cairo_pdf'
+---
+
+```{r echo=FALSE, warning=FALSE, fig.height=6, fig.width=9, comment=NA}
+#https://gist.github.com/mattflor/3d4bfc9e458654fe0ab1
+if(checkgraps$cb1){
+ print(vals$g1)  
+}
+```
+
+```{r echo = FALSE, warning=FALSE, fig.height=6, fig.width=8, comment = NA}
+#dev='cairo_pdf'
+if(checkgraps$cb2){
+ print(vals$g2)  
+}
+```
+
+```{r echo = FALSE, warning=FALSE, fig.height=6, fig.width=8, comment = NA}
+if(checkgraps$cb3){
+ print(vals$g3)  
+}
+```
+
+```{r echo = FALSE,  warning=FALSE,fig.height=6, fig.width=8, comment = NA}
+if(checkgraps$cb4){
+ print(vals$g4)  
+}
+```
+
+```{r echo = FALSE, warning=FALSE, fig.height=6, fig.width=8, comment = NA}
+if(checkgraps$cb5){
+ print(vals$g5)  
+}
+```

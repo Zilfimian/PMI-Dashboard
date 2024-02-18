@@ -1,3 +1,7 @@
+pacman::p_load(
+  shiny, shinydashboard, dashboardthemes
+)
+
 ui <- dashboardPage(
   title = "Adventure Works ",
   dashboardHeader(
@@ -41,11 +45,11 @@ ui <- dashboardPage(
     shinyDashboardThemes(theme = "blue_gradient"), # purple_gradient, grey_light
 
     tabItems(
-      tabItem(tabName = "tab1", uiOutput("UI1")) # ,
-      # tabItem(tabName = "tab2",  uiOutput("UI2")),
-      # tabItem(tabName = "tab3",  uiOutput("UI3")),
-      # tabItem(tabName = "tab4",  uiOutput("UI4")),
-      # tabItem(tabName = "tab5",  uiOutput("UI5"))
+      tabItem(tabName = "tab1", uiOutput("UI1")),
+      tabItem(tabName = "tab2", uiOutput("UI2"))
+      # ,tabItem(tabName = "tab3",  uiOutput("UI3")),
+      # ,tabItem(tabName = "tab4",  uiOutput("UI4")),
+      # ,tabItem(tabName = "tab5",  uiOutput("UI5"))
     )
   )
 ) # dashboardPage
