@@ -1,4 +1,5 @@
-# PMI-Dashboard# AdventureWorks R Shiny Analysis
+# PMI-Dashboard
+## AdventureWorks R Shiny Analysis
 
 This repository is part of my 2nd stage interview for the R Reporter position at PMI. The project involves using R Shiny to conduct a comprehensive analysis of the AdventureWorks dataset, covering sales, customer behavior, and more.
 
