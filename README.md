@@ -1,29 +1,28 @@
-# PMI-Dashboard
-## AdventureWorks R Shiny Analysis
+# AdventureWorks R Shiny Analysis
 
-This repository is part of my 2nd stage interview for the R Reporter position at PMI. The project involves using R Shiny to conduct a comprehensive analysis of the AdventureWorks dataset, covering sales, customer behavior, and more.
+R Shiny dashboard with a focus on analyzing the AdventureWorks database using SQL queries.
 
-## Dataset Overview
+This repository contains R Shiny dashboard code with 4 sections:
 
-- **Sales Data:** Detailed records of all sales transactions, customer information, and product details.
-- **Product Inventory:** Information about product stock levels, warehouse details, and categories.
-- **Employee Records:** Insights into company employees, organizational structure, and sales performance.
-- **Purchasing:** Additional information related to purchasing processes.
+- Exploratory Data Analysis
+- Sales Trends by Product and Region
+- Inventory Management Efficiency **(TBA)**
+- Sales Prediction
 
-## Objective
+## Dataset
 
-Create an interactive R Shiny dashboard to visualize and analyze various aspects of AdventureWorks, including sales trends, customer behavior, and inventory management.
+The main relationship can be seen in MySQL Workbench using `Database -> Reverse engineer` or use the [Dataedo AdventureWorks link](https://dataedo.com/samples/html/AdventureWorks/doc/AdventureWorks_2/home.html) with primary information. The best visualization is available [here](https://improveandrepeat.com/2019/02/use-the-adventureworks-sample-database-for-your-examples/).
 
-## Collaboration
+AdventureWorks database supports standard online transaction processing scenarios for a fictitious bicycle manufacturer - Adventure Works Cycles. Scenarios include Manufacturing, Sales, Purchasing, Product Management, Contact Management, and Human Resources.
 
-Feel free to collaborate by forking the repository, making changes, and submitting pull requests. Your contributions are welcome.
+## Level of Achievement
 
-## Interview Stage
+- Dynamic SQL Queries with Complex Joins *(partially done, needs improvement)*
+- Interactive Data Exploration *(done, needs assessment)*
+- Sophisticated Data Visualizations *(done, needs assessment)*
+- Data Export Options *(done, design can be changed)*
+- All in a single Shiny app *(done)*
 
-This project represents the second stage of my interview, showcasing skills in data analysis and visualization using R Shiny.
+## Time Spent
 
-Thank you for considering my application.
-
----
-
-*Note: Adjust the content based on your project specifics and preferences.*
+30+ hours (15+ hours mainly on SQL connection and data understanding)
