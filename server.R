@@ -2,7 +2,7 @@ pacman::p_load(
   DBI, RMySQL, shiny, shinydashboard, dashboardthemes, plotly,
   DT, stringr, ggplot2, readxl, tidyr, lubridate, RColorBrewer,
   reactable, glmnet, leaps, MASS, jtools, moments, ggpubr, naniar,
-  imputeTS, formattable, reactablefmtr, shinycssloaders,
+  imputeTS, formattable, reactablefmtr, shinycssloaders, forecast, shinyalert, GGally,
   dplyr
 )
 
@@ -226,6 +226,9 @@ server <- function(input, output, session) {
 
     df <- dbGetQuery(con, query_demo_tab1)
     df[df == ""] <- NA
+
+    df$DateFirstPurchase <- as.Date(str_remove_all(df$DateFirstPurchase, pattern = "Z"))
+    df$BirthDate <- as.Date(str_remove_all(df$BirthDate, pattern = "Z"))
 
     df <- df %>% mutate(
       MaritalStatus = factor(MaritalStatus, levels = c("M", "S"), labels = c("Married", "Single")),
@@ -827,8 +830,134 @@ server <- function(input, output, session) {
   #--------------------------------------------------------------- Tab 3 -----------------------------------
   #---------------------------------------------------------------------------------------------------------
 
+  output$UI3 <- renderUI({
+    fluidRow(
+      class = "text-center & center",
+      box(
+        solidHeader = T, width = 12,
+        valueBox(subtitle = "Inventory Analysis", value = "", color = "blue", width = 12),
+
+        # Inventory Management
+        uiOutput("Category"),
+        box(
+          width = 6,
+          shinycssloaders::withSpinner(plotlyOutput("Inventory_plot_Value"))
+        ),
+        box(
+          width = 6,
+          shinycssloaders::withSpinner(plotlyOutput("Inventory_plot_Quantity"))
+        ),
+        box(shinycssloaders::withSpinner(dataTableOutput("Inventory_table")),
+          width = 12,
+          box(
+            solidHeader = T, width = 12,
+            downloadButton("Inventory_excel", "Download the data")
+          )
+        )
+      ) # box full
+    )
+  }) # UI3
+
+  output$Category <- renderUI({
+    Category_choice <- dynamic_table(data = "production_productsubcategory", vars = c("Name")) %>%
+      pull() %>%
+      unique()
+
+    selectInput("CategoryNameInput", "Select Product Category", choices = c("All", Category_choice), selected = "Road Bikes")
+  })
 
 
+  inventory <- reactive({
+    # Create dynamic SQL query based on user input
+    dynamicQuery <- paste0("SELECT * FROM (", query_inventory_tab3, ") AS subquery WHERE 1=1")
+
+    # Add filter conditions for Product name
+    if (!is.null(input$productNameInput)) {
+      if (input$productNameInput == "All") {
+        dynamicQuery <- paste0(dynamicQuery, " AND CategoryName = '", input$CategoryNameInput, "'")
+      }
+    }
+
+    # Execute the dynamic query
+    dbGetQuery(con, dynamicQuery)
+  })
+
+
+  output$Inventory_plot_Quantity <- renderPlotly({
+    inventory <- inventory()
+    g6 <- inventory %>%
+      group_by(LocationName) %>%
+      summarise(
+        SafetyStockLevel = unique(SafetyStockLevel),
+        ReorderPoint = unique(ReorderPoint),
+        Quantity = sum(Quantity, na.rm = T)
+      ) %>%
+      ggplot(aes(x = reorder(LocationName, Quantity), y = Quantity, group = 1, text = paste0(
+        "Location Name: ", LocationName, " \n",
+        "Quantity: ", Quantity, " \n",
+        "Reorder Point: ", ReorderPoint, " \n",
+        "Safety Stock Level: ", SafetyStockLevel, ""
+      ))) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(size = 9, angle = 90)) +
+      geom_line(color = "darkorange", size = 2, alpha = 0.1) +
+      geom_point(size = 3, color = "darkorange") +
+      scale_color_brewer(palette = "Greens") +
+      labs(x = "") +
+      geom_area(fill = "darkorange", alpha = 0.1) +
+      ggtitle(paste0(" Inventory Quantity by Location"))
+
+    ggplotly(g6, tooltip = c("text")) %>% layout(legend = list(orientation = "h", xanchor = "center", y = -0.24, x = 0.5))
+  })
+
+
+  output$Inventory_plot_Value <- renderPlotly({
+    inventory <- inventory()
+    g7 <- inventory %>%
+      group_by(LocationName) %>%
+      summarise(
+        SafetyStockLevel = unique(SafetyStockLevel),
+        ReorderPoint = unique(ReorderPoint),
+        Quantity = sum(Quantity, na.rm = T),
+        Volume = sum(Quantity * StandardCost / 1000000, na.rm = T),
+      ) %>%
+      ggplot(aes(x = reorder(LocationName, Volume), y = Volume, group = 1, text = paste0(
+        "Location Name: ", LocationName, " \n",
+        "Quantity: ", Quantity, " \n",
+        "Reorder Point: ", ReorderPoint, " \n",
+        "Safety Stock Level: ", SafetyStockLevel, " \n",
+        "Volume (Standard Cost of Product * Quantity): ", round(Volume), "M"
+      ), )) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(size = 9, angle = 90)) +
+      geom_line(color = "#69b3a2", size = 2, alpha = 0.1) +
+      geom_point(size = 3, color = "#69b3a2") +
+      scale_color_brewer(palette = "Greens") +
+      labs(x = "") +
+      geom_area(fill = "#69b3a2", alpha = 0.1) +
+      ggtitle(paste0(" Inventory Volume by Location (1M)"))
+
+    ggplotly(g7, tooltip = c("text")) %>% layout(legend = list(orientation = "h", xanchor = "center", y = -0.24, x = 0.5))
+  })
+
+  inventory_show <- reactive({
+    inventory() %>%
+      select(ProductName, LocationName, SafetyStockLevel, ReorderPoint, CategoryName, Quantity, StandardCost) %>%
+      na.omit()
+  })
+  output$Inventory_table <- renderDataTable({
+    inventory_show() %>% DT::datatable()
+  })
+
+
+  output$Inventory_excel <- downloadHandler(
+    filename = function() {
+      paste0("Inventory-Data-", Sys.Date(), ".xlsx")
+    },
+    content = function(file) {
+      writexl::write_xlsx(inventory_show(), path = file)
+    }
+  )
 
 
   #---------------------------------------------------------------------------------------------------------
@@ -841,6 +970,377 @@ server <- function(input, output, session) {
   #---------------------------------------------------------------------------------------------------------
   #--------------------------------------------------------------- Tab 5 -----------------------------------
   #---------------------------------------------------------------------------------------------------------
+
+
+  output$UI5 <- renderUI({
+    fluidRow(
+      class = "text-center & center",
+      box(
+        solidHeader = T, width = 12,
+        valueBox(subtitle = "Sales prediction", value = "", color = "blue", width = 12),
+
+        # verbatimTextOutput("check"),
+        tabBox(
+          title = " ", height = "250px", width = 12,
+          # The id lets us use input$tabset1 on the server to find the current tab
+          id = "tabset1",
+          tabPanel(
+            "Regression",
+
+            # Change regression parameters
+            box(
+              width = 12, solidHeader = T,
+              box(width = 7, solidHeader = T, shinycssloaders::withSpinner(uiOutput("X_variables"))),
+              box(width = 3, solidHeader = T, selectInput("yVariable", "Select Dependent Variable",
+                choices = c("Sales Amount" = "LineTotal", "Order Quantity" = "OrderQty")
+              )),
+              box(width = 2, solidHeader = T, actionButton("runRegression", "ReRun")),
+              valueBox(subtitle = "Regression Analysis Results", value = "", color = "aqua", width = 12),
+              box(
+                width = 6, solidHeader = T,
+                valueBox(subtitle = "Benchmark Models", value = "", color = "light-blue", width = 12),
+                formattableOutput("regression_comparison_table"),
+                valueBox(subtitle = "Coefficients' Plot", value = "", color = "aqua", width = 12),
+                plotOutput("regression_output_plot")
+              ),
+              box(width = 6, solidHeader = T, shinycssloaders::withSpinner(verbatimTextOutput("regression_output")))
+            )
+          ), # tabPanel
+          tabPanel(
+            "ARIMA",
+
+            # Change regression and ARIMA parameters
+            box(
+              width = 12,
+              box(width = 6, dateRangeInput("dateRangeInput_regr", "Select Date Range", start = "2011-06-30", end = "2014-05-29")),
+              box(width = 6, numericInput("horizon", "Select the horizon", value = 5)) # ,
+
+              , box(width = 6, shinycssloaders::withSpinner(plotOutput("Prediction"))),
+              box(width = 6, shinycssloaders::withSpinner(dataTableOutput("Prediction_table")))
+            )
+          ) # tabPanel
+        )
+      )
+    )
+  }) # UI5
+
+
+
+
+  sales_pred <- reactive({
+    # Create dynamic SQL query based on user input
+    dynamicQuery <- paste0("SELECT * FROM (", query_regression, ") AS subquery WHERE 1=1")
+
+    # Start_date <- input$dateRangeInput_regr[1]
+    # End_date <- input$dateRangeInput_regr[2]
+    #
+    # # Add Query User Input Date
+    # if (!is.null(input$dateRangeInput_regr)) {
+    #   dynamicQuery <- paste0(dynamicQuery, " AND  CAST(OrderDate as date) BETWEEN '", str_remove_all(Start_date, "-"), "' AND '", str_remove_all(End_date, "-"), "'")
+    # }
+
+    # Execute the dynamic query
+    df <- dbGetQuery(con, dynamicQuery)
+    df[df == ""] <- NA
+
+    df$DateFirstPurchase <- as.Date(str_remove_all(df$DateFirstPurchase, pattern = "Z"))
+    df$BirthDate <- as.Date(str_remove_all(df$BirthDate, pattern = "Z"))
+
+    df <- df %>% mutate(
+      OrderDate = as.Date(OrderDate),
+      ProductLine = factor(ProductLine, levels = c("M", "S", "R", "T"), labels = c("Mountain", "Standard", "Road", "Touring")),
+      Style = factor(Style, levels = c("M", "U", "W"), labels = c("Mens", "Universal", "Womens")),
+      Class = factor(Class, levels = c("H", "M", "L"), labels = c("High", "Medium", "Low")),
+      MaritalStatus = factor(MaritalStatus, levels = c("M", "S"), labels = c("Married", "Single")),
+      Gender = factor(Gender, levels = c("F", "M"), labels = c("Female", "Male")),
+      Education = factor(Education, levels = c("Partial College", "Partial High School", "High School", "Bachelors ", "Graduate Degree"), ordered = T),
+      HomeOwnerFlag = factor(HomeOwnerFlag, levels = c("0", "1"), labels = c("No Home", "Homw Owner")),
+      TotalChildren = as.numeric(TotalChildren),
+      NumberChildrenAtHome = as.numeric(NumberChildrenAtHome),
+      NumberCarsOwned = as.numeric(NumberCarsOwned),
+      TotalPurchaseYTD = as.numeric(TotalPurchaseYTD),
+      OldUser = as.numeric((max(OrderDate, na.rm = T) - DateFirstPurchase) / 365.25),
+      Age = as.numeric((max(OrderDate, na.rm = T) - BirthDate) / 365.25),
+      YearlyIncome = factor(YearlyIncome, levels = sort(unique(YearlyIncome)), ordered = T),
+      Occupation = factor(Occupation),
+      CommuteDistance = factor(CommuteDistance, levels = sort(unique(CommuteDistance)), ordered = T)
+    )
+
+    df
+  })
+
+  vv <- reactiveValues(sales_pred_reg = NULL)
+
+  vv$sales_pred_reg <- reactive({
+    sales_pred <- sales_pred()
+
+    sales_pred <- sales_pred %>%
+      mutate(OrderDate >= (max(OrderDate, na.rm = T) - 365 / 2)) %>%
+      dplyr::select(-c(Status, DateFirstPurchase, BirthDate, OrderDate))
+
+    sales_pred <- sales_pred %>% dplyr::select(-c(OrderQty))
+    colnames(sales_pred)[1] <- "Y"
+    sales_pred$Y <- log(sales_pred$Y)
+
+    sales_pred <- na.omit(sales_pred)
+    sales_pred
+  })
+
+  observeEvent(input$runRegression, {
+    vv$sales_pred_reg <- reactive({
+      sales_pred <- sales_pred()
+
+      sales_pred <- sales_pred %>%
+        mutate(OrderDate >= (max(OrderDate, na.rm = T) - 365 / 2)) %>%
+        dplyr::select(-c(Status, DateFirstPurchase, BirthDate, OrderDate))
+      if (input$yVariable == "LineTotal") {
+        sales_pred <- sales_pred %>% dplyr::select(-c(OrderQty))
+        colnames(sales_pred)[1] <- "Y"
+        sales_pred$Y <- log(sales_pred$Y)
+      } else {
+        sales_pred <- sales_pred %>% dplyr::select(-c(LineTotal))
+        colnames(sales_pred)[1] <- "Y"
+      }
+
+      sales_pred <- na.omit(sales_pred)
+      sales_pred
+    })
+  })
+
+
+  output$X_variables <- renderUI({
+    sales_pred <- sales_pred()
+    #  sales_pred = sales_pred %>% dplyr::select(-c(Status, DateFirstPurchase, BirthDate, OrderDate))
+    cnames <- colnames(sales_pred)[-1]
+    cnames <- cnames[!str_detect(cnames, pattern = "Status|DateFirstPurchase|BirthDate|OrderDate")]
+    selectInput("xVariables", "Select Explanatory Variables",
+      choices = cnames,
+      selected = c(
+        "ProductLine", "Class", "Style", "MaritalStatus",
+        "YearlyIncome", "TotalChildren",
+        "NumberChildrenAtHome",
+        "Occupation",
+        "NumberCarsOwned",
+        "CommuteDistance", "OldUser", "Age"
+      ),
+      multiple = TRUE
+    )
+  })
+
+
+
+  full_model <- reactive({
+    sales_pred <- vv$sales_pred_reg()
+    # Full Model
+    full_model <- lm(Y ~ ., data = sales_pred)
+    full_model
+  })
+
+  zero_model <- reactive({
+    sales_pred <- vv$sales_pred_reg()
+    # Full Model
+    zero_model <- lm(Y ~ 1, data = sales_pred)
+    zero_model
+  })
+
+  step_model <- reactive({
+    sales_pred <- vv$sales_pred_reg()
+    full_model <- full_model()
+    # backward Selection
+    step_model <- stepAIC(full_model,
+      direction = "backward",
+      trace = FALSE
+    )
+    step_model <- eval(parse(text = paste0("lm(", paste(step_model$call)[2], ",data = sales_pred)")))
+
+    step_model
+  })
+
+
+  dt_best <- reactive({
+    full_model <- full_model()
+    step_model <- step_model()
+    zero_model <- zero_model()
+
+    adjusted_r_squared_full <- summary(full_model)$adj.r.squared %>% round(3)
+    adjusted_r_squared_forward <- summary(step_model)$adj.r.squared %>% round(3)
+
+
+    aic_full <- AIC(full_model) %>% round()
+    aic_zero <- AIC(zero_model) %>% round()
+    aic_forward <- AIC(step_model) %>% round()
+
+
+    mydt <- data.frame(
+      Model = c("Full Model", "Zero Model", "Backward Selection"),
+      R_squared = c(adjusted_r_squared_full, 0, adjusted_r_squared_forward),
+      AIC = c(aic_full, aic_zero, aic_forward),
+      RMSE = c(
+        round(sqrt(mean(full_model$residuals^2)), 2),
+        round(sqrt(mean(zero_model$residuals^2)), 2),
+        round(sqrt(mean(step_model$residuals^2)), 2)
+      )
+    )
+
+    if (any(str_detect(mydt[mydt$R_squared == max(mydt$R_squared), ]$Model, "Backward Selection"))) {
+      best_mod <- "Backward Selection"
+    } else {
+      best_mod <- mydt[mydt$R_squared == max(mydt$R_squared), ]$Model[1]
+    }
+
+    mydt <- mydt %>%
+      mutate(Selected = (Model == best_mod))
+
+    mydt
+  })
+
+
+  output$regression_comparison_table <- renderFormattable({
+    mydt <- dt_best()
+
+    best_mod <- mydt[mydt$Selected == T, ]$Model
+    mydt$AIC <- NULL
+    formattable(mydt, list(
+      Model = formatter("span", style = x ~ ifelse(x == best_mod,
+        style(
+          `border-radius` = "6px",
+          `background-color` = "green",
+          font.weight = "bold",
+          color = "white"
+        ), NA
+      )),
+      RMSE = formatter("span", style = x ~ ifelse(x == min(mydt$RMSE),
+        style(color = "green", font.weight = "bold"), NA
+      )),
+      R_squared = formatter("span", style = x ~ ifelse(x == max(mydt$R_squared),
+        style(color = "green", font.weight = "bold"), NA
+      )),
+      # AIC = formatter("span", style = x ~ ifelse(x == min(mydt$AIC),
+      #                                            style(color = "green", font.weight = "bold"), NA
+      # )),
+
+      Selected = formatter("span",
+        style = x ~ style(color = ifelse(x, "green", "red")),
+        x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "", ""))
+      )
+    ))
+  })
+
+  v <- reactiveValues(defaultModel = NULL)
+
+  #  v$data<-runif(100)
+
+  v$defaultModel <- reactive({
+    mydt <- dt_best()
+
+    best_mod <- mydt[mydt$Selected == T, ]$Model
+
+    if (best_mod == "Backward Selection") {
+      print_model <- step_model()
+    } else if (best_mod == "Zero Model") {
+      print_model <- zero_model()
+    } else {
+      print_model <- full_model()
+    }
+
+    print_model
+  })
+
+  observeEvent(
+    input$runRegression,
+    {
+      v$defaultModel <- reactive({
+        sales_pred <- vv$sales_pred_reg()
+        sales_pred <- sales_pred[, c("Y", input$xVariables)] # %>% select_(input$xVariables, "Y")
+        # Full Model
+        full_model <- lm(Y ~ ., data = sales_pred)
+        full_model
+      })
+    }
+  )
+
+
+  output$regression_output <- renderPrint({
+    req(v$defaultModel())
+    v$defaultModel() %>% summary()
+  })
+
+
+  output$regression_output_plot <- renderPlot({
+    print_model <- v$defaultModel()
+    plot_summs(print_model, robust = T, plot.distributions = F, inner_ci_level = .9)
+  })
+
+
+
+
+
+  pred_data <- reactive({
+    horizon <- input$horizon
+
+    if (horizon < 1 || horizon > 20) {
+      shinyalert("Invalid Horizon",
+        "Horizon must be between 1 and 20.",
+        type = "error"
+      )
+    } else {
+      sales_pred_all <- sales_pred()
+
+      if (input$yVariable == "LineTotal") {
+        sales_pred_all <- sales_pred_all %>% dplyr::select(-c(OrderQty))
+        colnames(sales_pred_all)[1] <- "Y"
+      } else {
+        sales_pred_all <- sales_pred_all %>% dplyr::select(-c(LineTotal))
+        colnames(sales_pred_all)[1] <- "Y"
+      }
+
+      Start_date <- input$dateRangeInput_regr[1]
+      End_date <- input$dateRangeInput_regr[2]
+
+      sales_pred_all_m <- sales_pred_all %>%
+        filter(OrderDate <= End_date, OrderDate >= Start_date) %>%
+        mutate(
+          # OrderMonth = factor(format(OrderDate, "%b-%Y"),levels = unique(format(OrderDate, "%b-%Y"))),
+          OrderMonth1 = as.Date(paste(format(OrderDate, "%m-%Y"), "01", sep = "-"), format = ("%m-%Y-%d")),
+        ) %>%
+        dplyr::group_by(OrderMonth1) %>%
+        dplyr::summarise(SalesAmount = sum(Y) / 1000)
+
+      STRT <- c(as.numeric(str_split(sales_pred_all_m$OrderMonth1[1], pattern = "-")[[1]][1]), as.numeric(format(sales_pred_all_m$OrderMonth1[1], "%m")))
+      END <- c(as.numeric(str_split(max(sales_pred_all_m$OrderMonth1), pattern = "-")[[1]][1]), as.numeric(format(max(sales_pred_all_m$OrderMonth1), "%m")))
+
+      tsData <- ts(sales_pred_all_m$SalesAmount, start = STRT, end = END, frequency = 12)
+
+      fit <- auto.arima(tsData, trace = F)
+      y1 <- forecast::forecast(fit, h = horizon)
+
+      y1
+    }
+  })
+
+
+  output$Prediction <- renderPlot({
+    req(pred_data())
+    y1 <- pred_data()
+
+    autoplot(y1) + labs(y = "", x = "") + ggtitle(paste0("Prediction of Montly ", input$yVariable))
+  })
+
+  output$Prediction_table <- renderDataTable({
+    req(pred_data())
+    y1 <- pred_data()
+
+    as.data.frame(y1) %>%
+      mutate_if(is.numeric, ~ round(., 1)) %>%
+      DT::datatable()
+  })
+
+
+  output$check <- renderPrint({
+    sales_pred <- vv$sales_pred_reg()
+    sales_pred <- sales_pred[, c("Y", input$xVariables)]
+    sales_pred %>% head()
+  })
 } # server
 
 # lapply(dbListConnections(MySQL()), dbDisconnect)

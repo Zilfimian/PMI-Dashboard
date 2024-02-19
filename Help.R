@@ -70,3 +70,44 @@ LEFT JOIN
     LEFT JOIN sales_salesterritory ON sales_salesorderheader.TerritoryID = sales_salesterritory.TerritoryID)
 ON
     sales_salesorderdetail.SalesOrderID = sales_salesorderheader.SalesOrderID"
+
+query_inventory_tab3 <- "SELECT production_location.Name as LocationName,
+production_product.SafetyStockLevel, production_product.ReorderPoint,
+production_product.ProductSubcategoryID,
+production_product.Name as ProductName,
+production_product.StandardCost, production_product.ListPrice, 
+production_productsubcategory.Name as CategoryName,
+production_productinventory.Quantity
+
+FROM ( (production_productinventory  left join production_location ON production_productinventory.LocationID = production_location.LocationID)
+	 LEFT JOIN (production_product 
+LEFT JOIN
+    (production_productsubcategory 
+	 LEFT JOIN production_productcategory ON production_productsubcategory.ProductCategoryID = production_productcategory.ProductCategoryID)
+     ON production_product.ProductSubcategoryID = production_productsubcategory.ProductSubcategoryID) ON 
+     production_productinventory.ProductID = production_product.ProductID)"
+
+
+query_regression <-"SELECT
+   sales_salesorderdetail.OrderQty, sales_salesorderdetail.LineTotal,
+    production_product.ProductLine,  production_product.Class, production_product.Style,  
+    sales_salesorderheader.OrderDate, sales_salesorderheader.Status,
+    ExtractValue(Demographics, '/IndividualSurvey/TotalPurchaseYTD') AS TotalPurchaseYTD,
+	      ExtractValue(Demographics, '/IndividualSurvey/DateFirstPurchase') AS DateFirstPurchase,
+	      ExtractValue(Demographics, '/IndividualSurvey/BirthDate') AS BirthDate,
+	      ExtractValue(Demographics, '/IndividualSurvey/MaritalStatus') AS MaritalStatus,
+	  ExtractValue(Demographics, '/IndividualSurvey/YearlyIncome') AS YearlyIncome,
+	  ExtractValue(Demographics, '/IndividualSurvey/Gender') AS Gender,
+	  ExtractValue(Demographics, '/IndividualSurvey/TotalChildren') AS TotalChildren,
+	  ExtractValue(Demographics, '/IndividualSurvey/NumberChildrenAtHome') AS NumberChildrenAtHome,
+	  ExtractValue(Demographics, '/IndividualSurvey/Education') AS Education,
+    ExtractValue(Demographics, '/IndividualSurvey/Occupation') AS Occupation,
+	  ExtractValue(Demographics, '/IndividualSurvey/HomeOwnerFlag') AS HomeOwnerFlag,
+	  ExtractValue(Demographics, '/IndividualSurvey/NumberCarsOwned') AS NumberCarsOwned,
+	  ExtractValue(Demographics, '/IndividualSurvey/CommuteDistance') AS CommuteDistance
+FROM
+    (sales_salesorderdetail LEFT JOIN production_product ON sales_salesorderdetail.ProductID = production_product.ProductID)
+LEFT JOIN
+    (sales_salesorderheader LEFT JOIN (sales_customer left join person_person on sales_customer.PersonID = person_person.BusinessEntityID) ON sales_salesorderheader.CustomerID = sales_customer.CustomerID)
+ON
+    sales_salesorderdetail.SalesOrderID = sales_salesorderheader.SalesOrderID"

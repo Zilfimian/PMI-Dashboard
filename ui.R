@@ -36,7 +36,7 @@ ui <- dashboardPage(
       menuItem("Exploratory data analysis", tabName = "tab1", icon = icon("home")),
       menuItem("Sales Trends by Product and Region", tabName = "tab2", icon = icon("diagnoses")),
       menuItem("Inventory Management Efficiency", tabName = "tab3", icon = icon("info-circle")),
-      menuItem("Supplier and Sales Performance", tabName = "tab4", icon = icon("info-circle")),
+      #menuItem("Supplier and Sales Performance", tabName = "tab4", icon = icon("info-circle")),
       menuItem("Sales prediction", tabName = "tab5", icon = icon("info-circle"))
     )
   ),
@@ -46,10 +46,10 @@ ui <- dashboardPage(
 
     tabItems(
       tabItem(tabName = "tab1", uiOutput("UI1")),
-      tabItem(tabName = "tab2", uiOutput("UI2"))
-      # ,tabItem(tabName = "tab3",  uiOutput("UI3")),
+      tabItem(tabName = "tab2", uiOutput("UI2")),
+       tabItem(tabName = "tab3",  uiOutput("UI3")),
       # ,tabItem(tabName = "tab4",  uiOutput("UI4")),
-      # ,tabItem(tabName = "tab5",  uiOutput("UI5"))
+      tabItem(tabName = "tab5",  uiOutput("UI5"))
     )
   )
 ) # dashboardPage
