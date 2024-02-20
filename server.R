@@ -2,7 +2,7 @@ pacman::p_load(
   DBI, RMySQL, shiny, shinydashboard, dashboardthemes, plotly,
   DT, stringr, ggplot2, readxl, tidyr, lubridate, RColorBrewer,
   reactable, glmnet, leaps, MASS, jtools, moments, ggpubr, naniar,
-  imputeTS, formattable, reactablefmtr, shinycssloaders, forecast, shinyalert, GGally,
+  imputeTS, formattable, reactablefmtr, shinycssloaders, forecast, shinyalert, GGally, rmarkdown,
   dplyr
 )
 
@@ -222,7 +222,7 @@ server <- function(input, output, session) {
 
   Demo <- reactive({
     Date_max <- sales_amount()$OrderDate %>% max(na.rm = T)
-    # Date_max = today()
+   
 
     df <- dbGetQuery(con, query_demo_tab1)
     df[df == ""] <- NA
@@ -248,17 +248,15 @@ server <- function(input, output, session) {
     df
   })
 
-  # For demographic Select Inputs
   output$firstSelectionDemo <- renderUI({
+    req(Demo())
     choice_1 <- colnames(Demo())[c(18, 4, 7:17)]
     selectInput("Demo1", "Select the variable:", choices = choice_1)
   })
 
   output$secondSelectionDemo <- renderUI({
-    shiny::validate(
-      need(length(colnames(Demo())) > 0, "A message!")
-    )
-
+    req(Demo())
+    
     choice_1 <- colnames(Demo())[c(7:18, 4)]
     choice_2 <- choice_1[!str_detect(choice_1, input$Demo1)]
     selectInput("Demo2", "Select the variable:", choices = choice_2)
@@ -300,7 +298,7 @@ server <- function(input, output, session) {
           ) +
           scale_fill_brewer(palette = "Paired"),
         tooltip = c("x", "y") # to handle problem with hovertext
-      ) %>% plotly::layout(showlegend = FALSE, margin = list(t = 75)) # %>% config(  modeBarButtonsToRemove = "hoverCompareCartesian")
+      ) %>% plotly::layout(showlegend = FALSE, margin = list(t = 75)) 
     } else {
       # numeric
 
@@ -330,15 +328,13 @@ server <- function(input, output, session) {
   })
 
   output$Demo2_Plot <- renderPlotly({
-    shiny::validate(
-      need(length(colnames(Demo())) > 0, "A message!")
-      # need(nchar(input$Demo2)>0, "A message!")
-    )
-
+    req(input$Demo2)
     numeric_vs_categorical(input$Demo2)
   })
 
   output$Demo3_Bivariate <- renderPlotly({
+    req(input$Demo2)
+    
     shiny::validate(
       need(length(colnames(Demo())) > 0, "A message!")
       # need(nchar(input$Demo2)>0, "A message!")
@@ -612,7 +608,6 @@ server <- function(input, output, session) {
       scale_y_continuous(sec.axis = sec_axis(trans = ~ . * 2.5, name = "")) +
       scale_color_brewer(palette = "Greens") +
       labs(col = "") +
-      # guides(fill = "none")+
       ggtitle("Sales Amount and Order Quantity Trends by Territory Group") +
       theme(legend.position = "bottom")
 
@@ -796,23 +791,18 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       src <- normalizePath(
-        # switch(input$report_format, PDF =
         "report.Rmd"
-        # , HTML = 'report1.Rmd', Word = 'report1.Rmd')
       )
       owd <- setwd(tempdir())
       on.exit(setwd(owd))
       file.copy(src,
-        # switch(input$report_format, PDF =
-        "report.Rmd"
-        #    , HTML = 'report1.Rmd', Word = 'report1.Rmd')
-        ,
+        "report.Rmd",
         overwrite = TRUE
       )
 
-      library(rmarkdown)
+      
       if (input$report_format == "PDF") {
-        out <- render("report.Rmd", "all") # ,pdf_file = tempfile(fileext = ".pdf")
+        out <- render("report.Rmd", "all") 
       } else {
         out <- render("report.Rmd", switch(input$report_format,
           HTML = html_document(),
@@ -839,14 +829,21 @@ server <- function(input, output, session) {
 
         # Inventory Management
         uiOutput("Category"),
+        
+        shinycssloaders::withSpinner(uiOutput("Quantity_inv")),
+        shinycssloaders::withSpinner(uiOutput("SafetyStock")),
+        shinycssloaders::withSpinner(uiOutput("Reorder")),
+        
         box(
-          width = 6,
-          shinycssloaders::withSpinner(plotlyOutput("Inventory_plot_Value"))
-        ),
-        box(
-          width = 6,
+          width = 7,
           shinycssloaders::withSpinner(plotlyOutput("Inventory_plot_Quantity"))
         ),
+        
+        box(
+          width = 5,
+          shinycssloaders::withSpinner(plotlyOutput("Inventory_plot_Value"))
+        ),
+        
         box(shinycssloaders::withSpinner(dataTableOutput("Inventory_table")),
           width = 12,
           box(
@@ -854,7 +851,7 @@ server <- function(input, output, session) {
             downloadButton("Inventory_excel", "Download the data")
           )
         )
-      ) # box full
+      ) # 
     )
   }) # UI3
 
@@ -863,7 +860,7 @@ server <- function(input, output, session) {
       pull() %>%
       unique()
 
-    selectInput("CategoryNameInput", "Select Product Category", choices = c("All", Category_choice), selected = "Road Bikes")
+    selectInput("CategoryNameInput", "Select Product Category", choices = c("All", Category_choice), selected = "All")
   })
 
 
@@ -872,8 +869,8 @@ server <- function(input, output, session) {
     dynamicQuery <- paste0("SELECT * FROM (", query_inventory_tab3, ") AS subquery WHERE 1=1")
 
     # Add filter conditions for Product name
-    if (!is.null(input$productNameInput)) {
-      if (input$productNameInput == "All") {
+    if (!is.null(input$CategoryNameInput)) {
+      if (input$CategoryNameInput != "All") {
         dynamicQuery <- paste0(dynamicQuery, " AND CategoryName = '", input$CategoryNameInput, "'")
       }
     }
@@ -882,32 +879,74 @@ server <- function(input, output, session) {
     dbGetQuery(con, dynamicQuery)
   })
 
+  
+  general_inventory <- reactive({
+    inventory <- inventory()
+    ss <- inventory %>%
+      summarise(
+        SafetyStockLevel = sum(SafetyStockLevel),
+        ReorderPoint = sum(ReorderPoint),
+        Quantity = sum(Quantity, na.rm = T)
+      )
+  })
+  
+  output$SafetyStock <- renderUI({
+    
+    ss = general_inventory()
+    
+    valueBox(value = ss$SafetyStockLevel, subtitle = "Safety Stock Level", color = "orange", width = 4)
+  })
+  
+  output$Reorder <- renderUI({
+    
+    ss = general_inventory()
+    valueBox(value = ss$ReorderPoint , subtitle = "Reorder Point", color = "teal", width = 4)
+  })
 
+  output$Quantity_inv <- renderUI({
+    
+    ss = general_inventory()
+    valueBox(value = ss$Quantity, subtitle = "Quantity", color = "teal", width = 4)
+  })
+  
+  
   output$Inventory_plot_Quantity <- renderPlotly({
     inventory <- inventory()
     g6 <- inventory %>%
       group_by(LocationName) %>%
       summarise(
-        SafetyStockLevel = unique(SafetyStockLevel),
-        ReorderPoint = unique(ReorderPoint),
+        SafetyStockLevel1 = unique(SafetyStockLevel),
+        ReorderPoint1 = unique(ReorderPoint),
+        SafetyStockLevel = sum(SafetyStockLevel),
+        ReorderPoint = sum(ReorderPoint),
         Quantity = sum(Quantity, na.rm = T)
       ) %>%
       ggplot(aes(x = reorder(LocationName, Quantity), y = Quantity, group = 1, text = paste0(
         "Location Name: ", LocationName, " \n",
         "Quantity: ", Quantity, " \n",
         "Reorder Point: ", ReorderPoint, " \n",
-        "Safety Stock Level: ", SafetyStockLevel, ""
+        "Reorder Point (for 1 product): ", ReorderPoint1, " \n",
+        "Safety Stock Level: ", SafetyStockLevel, " \n",
+        "Safety Stock Level (for 1 product): ", SafetyStockLevel1, ""
       ))) +
       theme_minimal() +
       theme(axis.text.x = element_text(size = 9, angle = 90)) +
-      geom_line(color = "darkorange", size = 2, alpha = 0.1) +
+      geom_line(aes(color = "Quantity"), size = 2, alpha = 0.1) +
       geom_point(size = 3, color = "darkorange") +
       scale_color_brewer(palette = "Greens") +
       labs(x = "") +
       geom_area(fill = "darkorange", alpha = 0.1) +
-      ggtitle(paste0(" Inventory Quantity by Location"))
+      ggtitle(paste0(" Inventory Quantity by Location"))+
+      geom_line(aes(y=SafetyStockLevel,color = "Safety Stock Level"), size = 2, alpha = 0.1)+
+      geom_point(aes(y=SafetyStockLevel),size = 2, color = "darkgreen") +
+      geom_line(aes(y=ReorderPoint,color = "Reorder Point"), size = 2, alpha = 0.1)+
+      geom_point(aes(y=ReorderPoint), size = 2, color = "darkred") +
+      scale_color_manual(name = " ", values = c("Reorder Point" = "darkred",
+                                                "Safety Stock Level"="darkgreen",
+                                                "Quantity"="darkorange"
+                                                ))
 
-    ggplotly(g6, tooltip = c("text")) %>% layout(legend = list(orientation = "h", xanchor = "center", y = -0.24, x = 0.5))
+    ggplotly(g6, tooltip = c("text")) %>% layout(legend = list(orientation = "h", xanchor = "center", y = -0.7, x = 0.5))
   })
 
 
@@ -1013,7 +1052,9 @@ server <- function(input, output, session) {
             box(
               width = 12,
               box(width = 6, dateRangeInput("dateRangeInput_regr", "Select Date Range", start = "2011-06-30", end = "2014-05-29")),
-              box(width = 6, numericInput("horizon", "Select the horizon", value = 5)) # ,
+              box(width = 6, selectInput("horizon", "Select the horizon", choices = 1:20, selected = 5))
+                  
+                  #numericInput("horizon", "Select the horizon", value = 5)) # ,
 
               , box(width = 6, shinycssloaders::withSpinner(plotOutput("Prediction"))),
               box(width = 6, shinycssloaders::withSpinner(dataTableOutput("Prediction_table")))
@@ -1276,7 +1317,7 @@ server <- function(input, output, session) {
 
 
   pred_data <- reactive({
-    horizon <- input$horizon
+    horizon <- as.numeric(input$horizon)
 
     if (horizon < 1 || horizon > 20) {
       shinyalert("Invalid Horizon",
