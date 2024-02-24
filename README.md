@@ -35,5 +35,21 @@ AdventureWorks database supports standard online transaction processing scenario
 30+ hours (15+ hours mainly on SQL connection and data understanding)
 
 ## Dashboard 
+### Tab 1: Exploratory Data Analysis
+
+![Tab 1-1](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab1_1.JPG)
+![Tab 1-2](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab1_2.JPG)
+![Tab 1-3](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab1_3.JPG)
+
+### Tab 2: Sales Trends by Product and Region
+![Tab 2-1](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab2_1.JPG)
+![Tab 2-2](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab2_2.JPG)
+
+### Tab 3: Inventory Management Efficiency
+![Tab 3-1](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab3_1.JPG)
+![Tab 3-2](https://github.com/Zilfimian/PMI-Dashboard/blob/main/DashImages/Tab3_2.JPG)
+
+### Tab 4: Sales Prediction (click on the picture)
+[![Tab 4](https://img.youtube.com/vi/Gmgandyp3JE/0.jpg)](https://www.youtube.com/watch?v=Gmgandyp3JE)
 
 
