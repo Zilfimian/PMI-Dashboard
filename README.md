@@ -15,6 +15,13 @@ The main relationship can be seen in MySQL Workbench using `Database -> Reverse 
 
 AdventureWorks database supports standard online transaction processing scenarios for a fictitious bicycle manufacturer - Adventure Works Cycles. Scenarios include Manufacturing, Sales, Purchasing, Product Management, Contact Management, and Human Resources.
 
+## Links 
+
+* [Data](https://github.com/vishal180618/OLTP-AdventureWorks2019-MySQL)
+* [Local MySQL Installation](https://dev.mysql.com/doc/refman/8.3/en/installing.html)
+* [Datbase schema](https://dataedo.com/download/AdventureWorks.pdf)
+
+
 ## Level of Achievement
 
 - Dynamic SQL Queries with Complex Joins *(partially done, needs improvement)*
@@ -26,3 +33,7 @@ AdventureWorks database supports standard online transaction processing scenario
 ## Time Spent
 
 30+ hours (15+ hours mainly on SQL connection and data understanding)
+
+## Dashboard 
+
+
